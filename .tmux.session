@@ -1,0 +1,4 @@
+tmux rename-window zero2prod
+tmux split-window -h
+tmux send-keys -t 1 C-z 'vim .' Enter
+tmux select-window -t 1
