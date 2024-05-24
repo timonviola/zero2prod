@@ -9,4 +9,3 @@ pub struct FormData {
 pub async fn subscribe(_form: web::Form<FormData>) -> HttpResponse {
     HttpResponse::Ok().finish()
 }
-
