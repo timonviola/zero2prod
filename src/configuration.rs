@@ -1,5 +1,8 @@
 use secrecy::Secret;
 use secrecy::ExposeSecret;
+use sqlx::postgres::PgConnectOptions;
+
+use serde_aux::field_attributes::deserialize_number_from_string;
 
 #[derive(serde::Deserialize)]
 pub struct Settings {
@@ -9,12 +12,14 @@ pub struct Settings {
 
 #[derive(serde::Deserialize)]
 pub struct ApplicationSettings {
+    #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
     pub host: String,
 }
 
 #[derive(serde::Deserialize)]
 pub struct DatabaseSettings {
+    #[serde(deserialize_with = "deserialize_number_from_string")]
     pub username: String,
     pub password: Secret<String>,
     pub port: u16,
@@ -23,20 +28,18 @@ pub struct DatabaseSettings {
 }
 
 impl DatabaseSettings {
-    pub fn connection_string(&self) -> Secret<String> {
-        Secret::new(
-            format!(
-            "postgres://{}:{}@{}:{}/{}",
-            self.username, self.password.expose_secret(), self.host, self.port, self.database_name
-        ))
+
+    pub fn without_db(&self) -> PgConnectOptions {
+        PgConnectOptions::new()
+            .host(&self.host)
+            .username(&self.host)
+            .password(&self.password.expose_secret())
+            .port(self.port)
     }
 
-    pub fn connection_string_without_db(&self) -> Secret<String> {
-        Secret::new( format!(
-            "postgres://{}:{}@{}:{}",
-            self.username, self.password.expose_secret(), self.host, self.port
-        ))
-    }
+    pub fn with_db(&self) -> PgConnectOptions {
+            self.without_db().database(&self.database_name)
+        }
 }
 
 pub enum Environment {
