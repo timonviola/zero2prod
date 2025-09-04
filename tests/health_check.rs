@@ -1,8 +1,8 @@
 use once_cell::sync::Lazy;
 use secrecy::ExposeSecret;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
+use std::io::{sink, stdout};
 use std::net::TcpListener;
-use std::io::{stdout, sink};
 use uuid::Uuid;
 
 use zero2prod::configuration::{get_configuration, DatabaseSettings};
@@ -138,7 +138,7 @@ async fn subscribe_returns_a_400_when_data_is_missing() {
     }
 }
 
- #[tokio::test]
+#[tokio::test]
 async fn subscribe_returns_a_400_when_fields_are_present_but_empty() {
     let app = spawn_app().await;
     let client = reqwest::Client::new();
@@ -148,7 +148,6 @@ async fn subscribe_returns_a_400_when_fields_are_present_but_empty() {
         ("", "missing both name and email"),
     ];
     for (body, description) in test_cases {
-
         let response = client
             .post(&format!("{}/subscriptions", &app.address))
             .header("Content-Type", "application/x-www-form-urlencoded")

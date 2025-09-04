@@ -1,5 +1,5 @@
-use secrecy::Secret;
 use secrecy::ExposeSecret;
+use secrecy::Secret;
 use sqlx::postgres::{PgConnectOptions, PgSslMode};
 
 use serde_aux::field_attributes::deserialize_number_from_string;
@@ -30,7 +30,6 @@ pub struct DatabaseSettings {
 }
 
 impl DatabaseSettings {
-
     pub fn without_db(&self) -> PgConnectOptions {
         let ssl_mode = if self.require_ssl {
             PgSslMode::Require
@@ -46,10 +45,10 @@ impl DatabaseSettings {
     }
 
     pub fn with_db(&self) -> PgConnectOptions {
-            let mut options = self.without_db().database(&self.database_name);
-            options.log_statements(tracing::log::LevelFilter::Trace);
-            options
-        }
+        let mut options = self.without_db().database(&self.database_name);
+        options.log_statements(tracing::log::LevelFilter::Trace);
+        options
+    }
 }
 
 pub enum Environment {
@@ -84,7 +83,6 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     let mut settings = config::Config::default();
     let base_path = std::env::current_dir().expect("Failed to determine the current directory");
     let configuration_directory = base_path.join("configuration");
-    
 
     settings.merge(config::File::from(configuration_directory.join("base")).required(true))?;
 
@@ -94,8 +92,7 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
         .expect("Failed to parse APP_ENVIRONMENT");
 
     settings.merge(
-        config::File::from(configuration_directory.join(environment.as_str())).required(true)
+        config::File::from(configuration_directory.join(environment.as_str())).required(true),
     )?;
     settings.try_into()
 }
-
