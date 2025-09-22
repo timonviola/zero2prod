@@ -8,8 +8,13 @@ curl -X GET 127.0.0.1:8000/health
 
 ## db migration
 
-export DATABASE_URL=postgres://postgres:password@127.0.0.1:5432/newsletter
-sqlx migrate add create_subscriptions_table
+`export DATABASE_URL=postgres://postgres:password@127.0.0.1:5432/newsletter`
+`sqlx migrate add create_subscriptions_table`
+`sqlx migrate run`
+
+### with `psql` cli
+`docker exec -it postgres psql -h "localhost" -U postgres -p 5432 -d postgres -c '\c newsletter' -c '\d+ subscriptions'`
+
 
 # test
 start pg image: `./scripts/init_db.sh`
