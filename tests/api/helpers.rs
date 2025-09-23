@@ -2,6 +2,7 @@ use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
 use once_cell::sync::Lazy;
 use std::io::{sink, stdout};
+use wiremock::MockServer;
 
 
 
@@ -26,6 +27,7 @@ static TRACING: Lazy<()> = Lazy::new(|| {
 pub struct TestApp {
     pub address: String,
     pub db_pool: PgPool,
+    pub email_server: MockServer,
 }
 
 impl TestApp {
@@ -52,6 +54,7 @@ pub async fn spawn_app() -> TestApp {
         c.application.port = 0;
         c
     };
+    let email_server = MockServer::start().await;
 
     let application = Application::build(configuration.clone())
         .await
@@ -62,6 +65,7 @@ pub async fn spawn_app() -> TestApp {
     TestApp {
         address,
         db_pool: get_connection_pool(&configuration.database),
+        email_server,
     }
 }
 
