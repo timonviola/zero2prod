@@ -3,7 +3,7 @@ use std::io::{sink, stdout};
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::net::TcpListener;
 use uuid::Uuid;
-
+use wiremock::MockServer;
 
 use zero2prod::configuration::{get_configuration, DatabaseSettings};
 use zero2prod::email_client::EmailClient;
@@ -26,6 +26,7 @@ static TRACING: Lazy<()> = Lazy::new(|| {
 pub struct TestApp {
     pub address: String,
     pub db_pool: PgPool,
+    pub email_server: MockServer,
 }
 
 impl TestApp {
@@ -45,6 +46,7 @@ pub async fn spawn_app() -> TestApp {
     // The first time `initialize` is invoked the code in `TRACING` is executed.
     // All other invocations will instead skip execution.
     Lazy::force(&TRACING);
+    let email_server = MockServer::start().await;
     let configuration = {
         let mut c = get_configuration().expect("Failed to read configuration.");
         // Use a different database for each test case
@@ -52,7 +54,7 @@ pub async fn spawn_app() -> TestApp {
         // Use a random OS port
         c.application.port = 0;
         // Use the mock server as email API
-        //c.email_client.base_url = email_server.uri();
+        c.email_client.base_url = email_server.uri();
         c
     };
     configure_database(&configuration.database).await;
@@ -61,32 +63,11 @@ pub async fn spawn_app() -> TestApp {
         .expect("failed");
     let address = format!("http://127.0.0.1:{}", application.port());
     let _ = tokio::spawn(application.run_until_stopped());
-//    let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port.");
-//    let port = listener.local_addr().unwrap().port();
-//    let address = format!("http://127.0.0.1:{}", port);
-//
-//    let mut configuration = get_configuration().expect("Failed to read configuration.");
-//    configuration.database.database_name = Uuid::new_v4().to_string();
-//    let connection_pool = configure_database(&configuration.database).await;
-//    let sender_email = configuration
-//        .email_client
-//        .sender()
-//        .expect("Invalid sender email address.");
-//    let timeout = configuration.email_client.timeout();
-//    let email_client = EmailClient::new(
-//        configuration.email_client.base_url,
-//        sender_email,
-//        configuration.email_client.authorization_token,
-//        timeout,
-//    );
-//
-//    let server =
-//        run(listener, connection_pool.clone(), email_client).expect("Failed to bind address.");
-//    let _ = tokio::spawn(server);
-//
+
     TestApp {
         address,
         db_pool: get_connection_pool(&configuration.database),
+        email_server,
     }
 }
 

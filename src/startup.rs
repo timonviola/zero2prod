@@ -1,4 +1,3 @@
-use crate::configuration;
 use crate::configuration::Settings;
 use crate::configuration::DatabaseSettings;
 use crate::email_client::EmailClient;
@@ -7,10 +6,10 @@ use crate::routes::{health_check, subscribe};
 use actix_web::dev::Server;
 use actix_web::{web, App, HttpServer};
 use sqlx::PgPool;
+use sqlx::postgres::PgPoolOptions;
 use std::net::TcpListener;
 use tracing_actix_web::TracingLogger;
 
-use sqlx::postgres::PgPoolOptions;
 
 
 pub fn run(
@@ -81,3 +80,4 @@ impl Application {
         self.server.await
     }
 }
+
