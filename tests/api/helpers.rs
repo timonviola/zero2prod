@@ -1,15 +1,14 @@
-use sqlx::{Connection, Executor, PgConnection, PgPool};
-use uuid::Uuid;
 use once_cell::sync::Lazy;
 use std::io::{sink, stdout};
+use sqlx::{Connection, Executor, PgConnection, PgPool};
+use std::net::TcpListener;
+use uuid::Uuid;
 use wiremock::MockServer;
 
-
-
 use zero2prod::configuration::{get_configuration, DatabaseSettings};
+use zero2prod::email_client::EmailClient;
 use zero2prod::startup::{Application, get_connection_pool};
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
-
 
 
 static TRACING: Lazy<()> = Lazy::new(|| {
@@ -47,21 +46,24 @@ pub async fn spawn_app() -> TestApp {
     // The first time `initialize` is invoked the code in `TRACING` is executed.
     // All other invocations will instead skip execution.
     Lazy::force(&TRACING);
-
+    let email_server = MockServer::start().await;
     let configuration = {
         let mut c = get_configuration().expect("Failed to read configuration.");
-        c.database.database_name =  Uuid::new_v4().to_string();
+        // Use a different database for each test case
+        c.database.database_name = Uuid::new_v4().to_string();
+        // Use a random OS port
         c.application.port = 0;
+        // Use the mock server as email API
+        c.email_client.base_url = email_server.uri();
         c
     };
-    let email_server = MockServer::start().await;
-
+    configure_database(&configuration.database).await;
     let application = Application::build(configuration.clone())
         .await
-        .expect("Failed to build application.");
-
+        .expect("failed");
     let address = format!("http://127.0.0.1:{}", application.port());
     let _ = tokio::spawn(application.run_until_stopped());
+
     TestApp {
         address,
         db_pool: get_connection_pool(&configuration.database),
@@ -69,7 +71,7 @@ pub async fn spawn_app() -> TestApp {
     }
 }
 
-pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
+async fn configure_database(config: &DatabaseSettings) -> PgPool {
     let mut connection = PgConnection::connect_with(&config.without_db())
         .await
         .expect("Failed to cennect to Postgres");
