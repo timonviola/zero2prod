@@ -1,15 +1,14 @@
 use once_cell::sync::Lazy;
-use std::io::{sink, stdout};
 use sqlx::{Connection, Executor, PgConnection, PgPool};
+use std::io::{sink, stdout};
 use std::net::TcpListener;
 use uuid::Uuid;
 use wiremock::MockServer;
 
 use zero2prod::configuration::{get_configuration, DatabaseSettings};
 use zero2prod::email_client::EmailClient;
-use zero2prod::startup::{Application, get_connection_pool};
+use zero2prod::startup::{get_connection_pool, Application};
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
-
 
 static TRACING: Lazy<()> = Lazy::new(|| {
     let default_filter_level = "info".to_string();
@@ -46,11 +45,7 @@ impl TestApp {
             .expect("Failed to execute request.")
     }
 
-    pub fn get_confirmation_links(
-        &self,
-        email_request: &wiremock::Request
-    ) -> ConfirmationLinks {
-
+    pub fn get_confirmation_links(&self, email_request: &wiremock::Request) -> ConfirmationLinks {
         let body: serde_json::Value = serde_json::from_slice(&email_request.body).unwrap();
 
         let get_link = |s: &str| {
@@ -58,14 +53,14 @@ impl TestApp {
                 .links(s)
                 .filter(|l| *l.kind() == linkify::LinkKind::Url)
                 .collect();
-                assert_eq!(links.len(), 1);
+            assert_eq!(links.len(), 1);
             let raw_link = links[0].as_str().to_owned();
             let mut confirmation_link = reqwest::Url::parse(&raw_link).unwrap();
             assert_eq!(confirmation_link.host_str().unwrap(), "127.0.0.1");
             confirmation_link.set_port(Some(self.port)).unwrap();
             confirmation_link
         };
-        
+
         let html = get_link(&body["HtmlBody"].as_str().unwrap());
         let plain_text = get_link(&body["TextBody"].as_str().unwrap());
         ConfirmationLinks { html, plain_text }
@@ -133,4 +128,3 @@ async fn configure_database(config: &DatabaseSettings) -> PgPool {
 
     connection_pool
 }
-

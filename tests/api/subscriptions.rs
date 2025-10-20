@@ -32,7 +32,6 @@ async fn subscribe_sends_a_confirmation_email_for_valid_data() {
         .await;
 
     app.post_subscriptions(body.into()).await;
-
 }
 
 #[tokio::test]
@@ -50,7 +49,6 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
 
     assert_eq!(200, response.status().as_u16());
 }
-
 
 #[tokio::test]
 async fn subscribe_persists_the_new_subscriber() {
@@ -86,7 +84,6 @@ async fn subscribe_returns_a_400_when_data_is_missing() {
     ];
 
     for (invalid_body, error_message) in test_cases {
-
         let response = app.post_subscriptions(invalid_body.into()).await;
         assert_eq!(
             400,
@@ -115,7 +112,6 @@ async fn subscribe_returns_a_400_when_fields_are_present_but_empty() {
         );
     }
 }
-
 
 #[tokio::test]
 async fn subscribe_returns_a_400_when_fields_are_present_but_invalid() {
@@ -153,5 +149,4 @@ async fn subscribe_fail_if_there_is_a_fatal_database_error() {
     let response = app.post_subscriptions(body.into()).await;
 
     assert_eq!(response.status().as_u16(), 500);
-
 }

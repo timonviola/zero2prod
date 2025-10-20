@@ -1,9 +1,9 @@
-use actix_web::HttpResponse;
-use actix_web::ResponseError;
+use crate::routes::error_chain_fmt;
 use actix_web::http::StatusCode;
 use actix_web::web;
+use actix_web::HttpResponse;
+use actix_web::ResponseError;
 use sqlx::PgPool;
-use crate::routes::error_chain_fmt;
 
 #[derive(thiserror::Error)]
 pub enum PublishError {
@@ -41,7 +41,10 @@ struct ConfirmedSubscriber {
     email: String,
 }
 
-pub async fn publish_newsletter(_body: web::Json<BodyData>, pool: web::Data<PgPool>) -> Result<HttpResponse, PublishError> {
+pub async fn publish_newsletter(
+    _body: web::Json<BodyData>,
+    pool: web::Data<PgPool>,
+) -> Result<HttpResponse, PublishError> {
     let _subscribers = get_confirmed_subscribers(&pool).await?;
     Ok(HttpResponse::Ok().finish())
 }

@@ -1,7 +1,7 @@
 use crate::configuration::DatabaseSettings;
 use crate::configuration::Settings;
 use crate::email_client::EmailClient;
-use crate::routes::{confirm, health_check,publish_newsletter, subscribe};
+use crate::routes::{confirm, health_check, publish_newsletter, subscribe};
 
 use actix_web::dev::Server;
 use actix_web::{web, App, HttpServer};
@@ -9,7 +9,6 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::net::TcpListener;
 use tracing_actix_web::TracingLogger;
-
 
 pub fn get_connection_pool(configuration: &DatabaseSettings) -> PgPool {
     PgPoolOptions::new()
@@ -63,7 +62,7 @@ impl Application {
     }
 }
 
-pub struct  ApplicationBaseUrl(pub String);
+pub struct ApplicationBaseUrl(pub String);
 
 pub fn run(
     listener: TcpListener,

@@ -2,20 +2,16 @@ use crate::helpers::{spawn_app, ConfirmationLinks, TestApp};
 use wiremock::matchers::{any, method, path};
 use wiremock::{Mock, ResponseTemplate};
 
-
 #[tokio::test]
 async fn newsletters_are_delivered_to_confirmed_subscribers() {
     let app = spawn_app().await;
     create_confirmed_subscriber(&app).await;
-
 
     Mock::given(any())
         .respond_with(ResponseTemplate::new(200))
         .expect(1)
         .mount(&app.email_server)
         .await;
-
-
 
     let newsletter_request_body = serde_json::json!({
       "title": "Newsletter title",
@@ -34,14 +30,11 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
     let app = spawn_app().await;
     create_unconfirmed_subscriber(&app).await;
 
-
     Mock::given(any())
         .respond_with(ResponseTemplate::new(200))
         .expect(0)
         .mount(&app.email_server)
         .await;
-
-
 
     let newsletter_request_body = serde_json::json!({
       "title": "Newsletter title",
@@ -53,7 +46,6 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
 
     let response = app.post_newsletters(newsletter_request_body).await;
     assert_eq!(response.status().as_u16(), 200);
-    
 }
 
 #[tokio::test]
@@ -78,9 +70,9 @@ async fn newsletters_return_400_for_invalid_data() {
 
     for (invalid_body, error_message) in test_cases {
         let response = app.post_newsletters(invalid_body).await;
-    
 
-        assert_eq!(400, 
+        assert_eq!(
+            400,
             response.status().as_u16(),
             "The API did not fail with 400 Bad Request when the payload was {}.",
             error_message
@@ -89,7 +81,6 @@ async fn newsletters_return_400_for_invalid_data() {
 }
 
 async fn create_unconfirmed_subscriber(app: &TestApp) -> ConfirmationLinks {
-
     let body = "name=le%20guin&email=cica%40gmail.com";
     let _mock_guard = Mock::given(path("/email"))
         .and(method("POST"))
@@ -102,7 +93,6 @@ async fn create_unconfirmed_subscriber(app: &TestApp) -> ConfirmationLinks {
         .await
         .error_for_status()
         .unwrap();
-
 
     //inspect mock confirmation link
     let email_request = &app
