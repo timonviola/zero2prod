@@ -1,10 +1,11 @@
 use once_cell::sync::Lazy;
+use argon2::password_hash::SaltString;
+use argon2::{Argon2, PasswordHasher};
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::io::{sink, stdout};
 use std::net::TcpListener;
 use uuid::Uuid;
 use wiremock::MockServer;
-use sha3::Digest;
 
 use zero2prod::configuration::{get_configuration, DatabaseSettings};
 use zero2prod::email_client::EmailClient;
@@ -34,15 +35,16 @@ impl TestUser {
         Self {
             user_id: Uuid::new_v4(),
             username: Uuid::new_v4().to_string(),
-            password: Uuid::new_v4().to_string()
+            password: Uuid::new_v4().to_string(),
         }
     }
 
     pub async fn store(&self, pool: &PgPool) {
-        let password_hash = sha3::Sha3_256::digest(
-            &self.password.as_bytes()
-        );
-        let password_hash = format!("{:x}", password_hash);
+        let salt = SaltString::generate(&mut rand::thread_rng());
+        let password_hash = Argon2::default()
+            .hash_password(&self.password.as_bytes(), &salt)
+            .unwrap()
+            .to_string();
         sqlx::query!(
             "INSERT INTO users (user_id, username, password_hash)
             VALUES ($1, $2, $3)",
@@ -54,7 +56,6 @@ impl TestUser {
         .await
         .expect("Failed to create test users.");
     }
-
 }
 
 pub struct TestApp {

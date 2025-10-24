@@ -2,15 +2,15 @@ use crate::domain::SubscriberEmail;
 use crate::email_client::EmailClient;
 use crate::routes::error_chain_fmt;
 use actix_web::http::header::{HeaderMap, HeaderValue};
-use actix_web::http::{StatusCode, header};
+use actix_web::http::{header, StatusCode};
 use actix_web::web;
 use actix_web::HttpRequest;
 use actix_web::HttpResponse;
 use actix_web::ResponseError;
 use anyhow::Context;
+use argon2::{PasswordHash, PasswordVerifier, Algorithm, Argon2, Params, PasswordHasher, Version};
+use secrecy::{ExposeSecret, Secret};
 use sqlx::PgPool;
-use secrecy::{Secret, ExposeSecret};
-use sha3::Digest;
 
 #[derive(thiserror::Error)]
 pub enum PublishError {
@@ -41,8 +41,7 @@ impl ResponseError for PublishError {
             }
             PublishError::AuthError(_) => {
                 let mut response = HttpResponse::new(StatusCode::UNAUTHORIZED);
-                let header_value = HeaderValue::from_str(r#"Basic realm="publish""#)
-                    .unwrap();
+                let header_value = HeaderValue::from_str(r#"Basic realm="publish""#).unwrap();
                 response
                     .headers_mut()
                     .insert(header::WWW_AUTHENTICATE, header_value);
@@ -84,12 +83,8 @@ pub async fn publish_newsletter(
     email_client: web::Data<EmailClient>,
     request: HttpRequest,
 ) -> Result<HttpResponse, PublishError> {
-    let credentials = basic_authentication(request.headers())
-        .map_err(PublishError::AuthError)?;
-    tracing::Span::current().record(
-        "username",
-        &tracing::field::display(&credentials.username)
-    );
+    let credentials = basic_authentication(request.headers()).map_err(PublishError::AuthError)?;
+    tracing::Span::current().record("username", &tracing::field::display(&credentials.username));
     let user_id = validate_credentials(credentials, &pool).await?;
     tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
     let subscribers = get_confirmed_subscribers(&pool).await?;
@@ -121,29 +116,51 @@ pub async fn publish_newsletter(
     Ok(HttpResponse::Ok().finish())
 }
 
-async fn validate_credentials(credentials: Credentials, pool: &PgPool) -> Result<uuid::Uuid, PublishError> {
-    let password_hash = sha3::Sha3_256::digest(
-        credentials.password.expose_secret().as_bytes()
+async fn validate_credentials(
+    credentials: Credentials,
+    pool: &PgPool,
+) -> Result<uuid::Uuid, PublishError> {
+    let hasher = Argon2::new(
+        Algorithm::Argon2id,
+        Version::V0x13,
+        Params::new(15_000, 2, 1, None)
+            .context("Failed to build Argon2 parameters")
+            .map_err(PublishError::UnexpectedError)?,
     );
-    let password_hash = format!("{:x}", password_hash);
-    let user_id: Option<_> = sqlx::query!(
+    let row = sqlx::query!(
         r#"
-        SELECT user_id
+        SELECT user_id, password_hash
         FROM users
-        WHERE username = $1 AND password_hash = $2
+        WHERE username = $1
         "#,
         credentials.username,
-        password_hash,
     )
     .fetch_optional(pool)
     .await
-    .context("Failed to perform a query to validate auth credentials.")
+    .context("Failed to perform query to retrieve stored credentials.")
     .map_err(PublishError::UnexpectedError)?;
 
-    user_id
-        .map(|row| row.user_id)
-        .ok_or_else(|| anyhow::anyhow!("Invalid username or password."))
-        .map_err(PublishError::AuthError)
+    let (expected_password_hash, user_id) = match row {
+        Some(row) => (row.password_hash, row.user_id),
+        None => {
+            return Err(PublishError::AuthError(anyhow::anyhow!(
+            "Unknown username."
+            )));
+        }
+    };
+    let expected_password_hash = PasswordHash::new(&expected_password_hash)
+        .context("Failed to parse hash in PHC string format.")
+        .map_err(PublishError::UnexpectedError)?;
+
+    Argon2::default()
+        .verify_password(
+            credentials.password.expose_secret().as_bytes(),
+            &expected_password_hash
+        )
+        .context("Invalid password.")
+        .map_err(PublishError::AuthError)?;
+
+    Ok(user_id)
 }
 
 fn basic_authentication(headers: &HeaderMap) -> Result<Credentials, anyhow::Error> {
@@ -170,7 +187,10 @@ fn basic_authentication(headers: &HeaderMap) -> Result<Credentials, anyhow::Erro
         .ok_or_else(|| anyhow::anyhow!("A password must be provided in 'Basic' auth."))?
         .to_string();
 
-    Ok(Credentials { username, password: Secret::new(password) })
+    Ok(Credentials {
+        username,
+        password: Secret::new(password),
+    })
 }
 
 #[tracing::instrument(name = "Get confirmed subscribers", skip(pool))]
