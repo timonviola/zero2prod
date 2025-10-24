@@ -1,6 +1,6 @@
-use once_cell::sync::Lazy;
 use argon2::password_hash::SaltString;
 use argon2::{Argon2, PasswordHasher};
+use once_cell::sync::Lazy;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::io::{sink, stdout};
 use std::net::TcpListener;
