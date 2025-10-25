@@ -29,7 +29,7 @@ pub fn init_subscriber(subscriber: impl Subscriber + Send + Sync) {
 }
 
 pub fn spawn_blocking_with_tracing<F, R>(f: F) -> JoinHandle<R>
-where 
+where
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
 {
