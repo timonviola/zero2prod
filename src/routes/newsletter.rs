@@ -10,7 +10,7 @@ use actix_web::HttpResponse;
 use actix_web::ResponseError;
 use anyhow::Context;
 use argon2::{
-    Algorithm, Argon2, Error, Params, PasswordHash, PasswordHasher, PasswordVerifier, Version,
+    Argon2, PasswordHash, PasswordVerifier,
 };
 use secrecy::{ExposeSecret, Secret};
 use sqlx::PgPool;
