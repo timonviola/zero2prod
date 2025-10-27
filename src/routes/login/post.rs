@@ -1,14 +1,12 @@
 use actix_web::http::header::LOCATION;
 use actix_web::web;
 use actix_web::HttpResponse;
-use actix_web::http::StatusCode;
+use actix_web::http::{StatusCode, header::ContentType};
 use actix_web::ResponseError;
 use secrecy::Secret;
 use sqlx::PgPool;
 use crate::authentication::AuthError;
 use crate::routes::error_chain_fmt;
-
-
 use crate::authentication::{validate_credentials, Credentials};
 
 #[derive(serde::Deserialize)]
@@ -16,6 +14,7 @@ pub struct FormData {
     username: String,
     password: Secret<String>,
 }
+
 
 pub async fn login(form: web::Form<FormData>, pool: web::Data<PgPool>) -> Result<HttpResponse, LoginError> {
     let credentials = Credentials {
@@ -57,8 +56,9 @@ impl std::fmt::Debug for LoginError {
 
 impl ResponseError for LoginError {
     fn error_response(&self) -> HttpResponse<actix_web::body::BoxBody> {
+        let encoded_error = urlencoding::Encoded::new(self.to_string());
         HttpResponse::build(self.status_code())
-            .insert_header((LOCATION, "/login"))
+            .insert_header((LOCATION, format!("/login?error={}", encoded_error)))
             .finish()
     }
 
