@@ -5,6 +5,7 @@ use crate::routes::{
     confirm, health_check, home, login, login_form, publish_newsletter, subscribe,
 };
 use crate::routes::admin_dashboard;
+use crate::routes::{change_password, change_password_form};
 use secrecy::ExposeSecret;
 use actix_web::cookie::Key;
 use actix_web::dev::Server;
@@ -103,6 +104,8 @@ pub async fn run(
             .route("/login", web::post().to(login))
             .route("/", web::get().to(home))
             .route("/admin/dashboard", web::get().to(admin_dashboard))
+            .route("/admin/password", web::get().to(change_password_form))
+            .route("/admin/password", web::post().to(change_password))
             .app_data(connection_pool.clone())
             .app_data(email_client.clone())
             .app_data(base_url.clone())

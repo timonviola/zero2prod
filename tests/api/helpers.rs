@@ -34,8 +34,9 @@ impl TestUser {
         Self {
             user_id: Uuid::new_v4(),
             username: Uuid::new_v4().to_string(),
-            password: Uuid::new_v4().to_string(),
+            password: "everythinghastostartsomewhere".into(),
         }
+
     }
 
     pub async fn store(&self, pool: &PgPool) {
@@ -48,6 +49,7 @@ impl TestUser {
         .hash_password(&self.password.as_bytes(), &salt)
         .unwrap()
         .to_string();
+        dbg!(&password_hash);
         sqlx::query!(
             "INSERT INTO users (user_id, username, password_hash)
             VALUES ($1, $2, $3)",
