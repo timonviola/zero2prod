@@ -86,6 +86,17 @@ impl TestApp {
             .unwrap()
     }
 
+    pub async fn get_admin_dashboard_html(&self) -> String {
+        self.api_client
+            .get(&format!("{}/admin/dashboard", &self.address))
+            .send()
+            .await
+            .expect("Failed to excute request")
+            .text()
+            .await
+            .unwrap()
+    }
+
     pub async fn post_login<Body>(&self, body: &Body) -> reqwest::Response
     where
         Body: serde::Serialize,
