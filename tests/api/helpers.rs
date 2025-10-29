@@ -5,6 +5,7 @@ use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::io::{sink, stdout};
 use uuid::Uuid;
 use wiremock::MockServer;
+use reqwest::Response;
 
 use zero2prod::configuration::{get_configuration, DatabaseSettings};
 use zero2prod::startup::{get_connection_pool, Application};
@@ -87,14 +88,19 @@ impl TestApp {
     }
 
     pub async fn get_admin_dashboard_html(&self) -> String {
+        self.get_admin_dashboard()
+            .await
+            .text()
+            .await
+            .unwrap()
+    }
+
+    pub async fn get_admin_dashboard(&self) -> Response {
         self.api_client
             .get(&format!("{}/admin/dashboard", &self.address))
             .send()
             .await
             .expect("Failed to excute request")
-            .text()
-            .await
-            .unwrap()
     }
 
     pub async fn post_login<Body>(&self, body: &Body) -> reqwest::Response
