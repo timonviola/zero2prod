@@ -78,6 +78,14 @@ pub struct ConfirmationLinks {
 }
 
 impl TestApp {
+    pub async fn get_change_password(&self) -> String {
+        self.api_client
+            .get(&format!("{}/admin/password", &self.address))
+            .send()
+            .await
+            .expect("Failed to excute request")
+    }
+
     pub async fn get_login_html(&self) -> String {
         self.api_client
             .get(&format!("{}/login", &self.address))
@@ -103,6 +111,18 @@ impl TestApp {
             .send()
             .await
             .expect("Failed to excute request")
+    }
+
+    pub async fn post_password<Body>(&self, body: &Body) -> reqwest::Response
+    where
+        Body: serde::Serialize,
+    {
+        self.api_client
+            .post(&format!("{}/admin/password", &self.address))
+            .form(body)
+            .send()
+            .await
+            .expect("Failed to execute request.")
     }
 
     pub async fn post_login<Body>(&self, body: &Body) -> reqwest::Response
