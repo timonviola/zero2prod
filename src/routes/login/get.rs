@@ -1,7 +1,10 @@
-use actix_web::{cookie::{time::Duration, Cookie}, http::header::ContentType, web, HttpRequest, HttpResponse};
+use actix_web::{
+    cookie::{time::Duration, Cookie},
+    http::header::ContentType,
+    web, HttpRequest, HttpResponse,
+};
 use actix_web_flash_messages::{IncomingFlashMessages, Level};
 use std::fmt::Write;
-
 
 pub async fn login_form(flash_messages: IncomingFlashMessages) -> HttpResponse {
     let mut error_html = String::new();
@@ -10,7 +13,7 @@ pub async fn login_form(flash_messages: IncomingFlashMessages) -> HttpResponse {
     }
     HttpResponse::Ok()
         .content_type(ContentType::html())
-        .cookie(Cookie::build("_flash", "").max_age(Duration::ZERO).finish(),)
+        .cookie(Cookie::build("_flash", "").max_age(Duration::ZERO).finish())
         .body(format!(
             r#"<!DOCTYPE html>
 <html lang="en">

@@ -1,11 +1,11 @@
 use argon2::password_hash::SaltString;
 use argon2::{Argon2, Params, PasswordHasher};
 use once_cell::sync::Lazy;
+use reqwest::Response;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::io::{sink, stdout};
 use uuid::Uuid;
 use wiremock::MockServer;
-use reqwest::Response;
 
 use zero2prod::configuration::{get_configuration, DatabaseSettings};
 use zero2prod::startup::{get_connection_pool, Application};
@@ -36,7 +36,6 @@ impl TestUser {
             username: Uuid::new_v4().to_string(),
             password: "everythinghastostartsomewhere".into(),
         }
-
     }
 
     pub async fn store(&self, pool: &PgPool) {
@@ -49,7 +48,6 @@ impl TestUser {
         .hash_password(&self.password.as_bytes(), &salt)
         .unwrap()
         .to_string();
-        dbg!(&password_hash);
         sqlx::query!(
             "INSERT INTO users (user_id, username, password_hash)
             VALUES ($1, $2, $3)",
@@ -78,12 +76,28 @@ pub struct ConfirmationLinks {
 }
 
 impl TestApp {
-    pub async fn get_change_password(&self) -> String {
+    pub async fn get_change_password(&self) -> reqwest::Response {
         self.api_client
             .get(&format!("{}/admin/password", &self.address))
             .send()
             .await
             .expect("Failed to excute request")
+    }
+
+    pub async fn get_change_password_html(&self) -> String {
+        self.get_change_password().await.text().await.unwrap()
+    }
+
+    pub async fn post_change_password<Body>(&self, body: &Body) -> reqwest::Response
+    where
+        Body: serde::Serialize,
+    {
+        self.api_client
+            .post(&format!("{}/admin/password", &self.address))
+            .form(body)
+            .send()
+            .await
+            .expect("Failed to execute request.")
     }
 
     pub async fn get_login_html(&self) -> String {
@@ -98,11 +112,7 @@ impl TestApp {
     }
 
     pub async fn get_admin_dashboard_html(&self) -> String {
-        self.get_admin_dashboard()
-            .await
-            .text()
-            .await
-            .unwrap()
+        self.get_admin_dashboard().await.text().await.unwrap()
     }
 
     pub async fn get_admin_dashboard(&self) -> Response {

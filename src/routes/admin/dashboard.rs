@@ -1,19 +1,19 @@
-use actix_web::{http::header::{ContentType, LOCATION}, HttpResponse};
-use actix_web::{web};
+use crate::session_state::TypedSession;
+use crate::utils::e500;
+use actix_web::web;
+use actix_web::{
+    http::header::{ContentType, LOCATION},
+    HttpResponse,
+};
 use anyhow::Context;
 use sqlx::PgPool;
 use uuid::Uuid;
-use crate::utils::e500;
-use crate::session_state::TypedSession;
 
 pub async fn admin_dashboard(
     session: TypedSession,
     pool: web::Data<PgPool>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let username = if let Some(user_id) = session
-        .get_user_id()
-        .map_err(e500)?
-    {
+    let username = if let Some(user_id) = session.get_user_id().map_err(e500)? {
         get_username(user_id, &pool).await.map_err(e500)?
     } else {
         return Ok(HttpResponse::SeeOther()
@@ -22,7 +22,8 @@ pub async fn admin_dashboard(
     };
     Ok(HttpResponse::Ok()
         .content_type(ContentType::html())
-        .body(format!(r#"<!DOCTYPE html>
+        .body(format!(
+            r#"<!DOCTYPE html>
 <html lang="en">
     <head>
         <meta http-equiv="content-type" content="text/html; charset=utf-8">
@@ -36,8 +37,7 @@ pub async fn admin_dashboard(
         </ol>
     </body>
 </html>"#
-
-    )))
+        )))
 }
 
 async fn get_username(user_id: Uuid, pool: &PgPool) -> Result<String, anyhow::Error> {

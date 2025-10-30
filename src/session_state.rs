@@ -1,9 +1,9 @@
+use actix_session::Session;
 use actix_session::{SessionExt, SessionGetError, SessionInsertError};
 use actix_web::dev::Payload;
 use actix_web::{FromRequest, HttpRequest};
-use actix_session::Session;
+use std::future::{ready, Ready};
 use uuid::Uuid;
-use std::future::{Ready, ready};
 
 impl FromRequest for TypedSession {
     type Error = <Session as FromRequest>::Error;
@@ -12,7 +12,6 @@ impl FromRequest for TypedSession {
     fn from_request(req: &HttpRequest, _payload: &mut Payload) -> Self::Future {
         ready(Ok(TypedSession(req.get_session())))
     }
-
 }
 
 pub struct TypedSession(Session);
@@ -23,7 +22,7 @@ impl TypedSession {
     pub fn renew(&self) {
         self.0.renew();
     }
-    
+
     pub fn insert_user_id(&self, user_id: Uuid) -> Result<(), SessionInsertError> {
         self.0.insert(Self::USER_ID_KEY, user_id)
     }

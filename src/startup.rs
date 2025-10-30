@@ -1,24 +1,24 @@
 use crate::configuration::DatabaseSettings;
 use crate::configuration::Settings;
 use crate::email_client::EmailClient;
+use crate::routes::admin_dashboard;
+use crate::routes::{change_password, change_password_form};
 use crate::routes::{
     confirm, health_check, home, login, login_form, publish_newsletter, subscribe,
 };
-use crate::routes::admin_dashboard;
-use crate::routes::{change_password, change_password_form};
-use secrecy::ExposeSecret;
+use actix_session::storage::RedisSessionStore;
+use actix_session::SessionMiddleware;
 use actix_web::cookie::Key;
 use actix_web::dev::Server;
 use actix_web::{web, App, HttpServer};
 use actix_web_flash_messages::storage::CookieMessageStore;
 use actix_web_flash_messages::FlashMessagesFramework;
+use secrecy::ExposeSecret;
 use secrecy::Secret;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::net::TcpListener;
 use tracing_actix_web::TracingLogger;
-use actix_session::SessionMiddleware;
-use actix_session::storage::RedisSessionStore;
 
 pub fn get_connection_pool(configuration: &DatabaseSettings) -> PgPool {
     PgPoolOptions::new()
@@ -61,7 +61,9 @@ impl Application {
             configuration.application.base_url,
             configuration.application.hmac_secret,
             configuration.redis_uri,
-        ).await.unwrap();
+        )
+        .await
+        .unwrap();
         Ok(Self { port, server })
     }
 
@@ -94,7 +96,10 @@ pub async fn run(
     let server = HttpServer::new(move || {
         App::new()
             .wrap(message_framework.clone())
-            .wrap(SessionMiddleware::new(redis_store.clone(), secret_key.clone()))
+            .wrap(SessionMiddleware::new(
+                redis_store.clone(),
+                secret_key.clone(),
+            ))
             .wrap(TracingLogger::default())
             .route("/health_check", web::get().to(health_check))
             .route("/subscriptions", web::post().to(subscribe))
