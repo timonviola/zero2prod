@@ -1,7 +1,7 @@
+use crate::authentication::{validate_credentials, AuthError, Credentials};
+use crate::routes::admin::dashboard::get_username;
 use crate::session_state::TypedSession;
 use crate::utils::{e500, see_other};
-use crate::routes::admin::dashboard::get_username;
-use crate::authentication::{validate_credentials, AuthError, Credentials};
 
 use actix_web::{http::header::ContentType, web, HttpResponse};
 use actix_web_flash_messages::FlashMessage;
@@ -26,7 +26,6 @@ pub async fn change_password(
     };
     let user_id = user_id.unwrap();
 
-
     if form.new_password.expose_secret() != form.new_password_check.expose_secret() {
         FlashMessage::error(
             "You entered two different new passwords - the field values must match.",
@@ -44,9 +43,13 @@ pub async fn change_password(
             AuthError::InvalidCredentials(_) => {
                 FlashMessage::error("The current password is incorrect.").send();
                 Ok(see_other("/admin/password"))
-        }
-        AuthError::UnexpectedError(_) => Err(e500(e).into()),
-        }
+            }
+            AuthError::UnexpectedError(_) => Err(e500(e).into()),
+        };
     }
-    todo!()
+    crate::authentication::change_password(user_id, form.0.new_password, &pool)
+        .await
+        .map_err(e500)?;
+    FlashMessage::error("Your password has been changed.").send();
+    Ok(see_other("/admin/password"))
 }
