@@ -1,9 +1,9 @@
 use argon2::password_hash::SaltString;
 use argon2::{Argon2, Params, PasswordHasher};
-use once_cell::sync::Lazy;
 use reqwest::Response;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::io::{sink, stdout};
+use std::sync::LazyLock;
 use uuid::Uuid;
 use wiremock::MockServer;
 
@@ -11,7 +11,7 @@ use zero2prod::configuration::{get_configuration, DatabaseSettings};
 use zero2prod::startup::{get_connection_pool, Application};
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
 
-static TRACING: Lazy<()> = Lazy::new(|| {
+static TRACING: LazyLock<()> = LazyLock::new(|| {
     let _default_filter_level = "info".to_string();
     let _subscriber_name = "test".to_string();
     if std::env::var("TEST_LOG").is_ok() {
@@ -199,7 +199,7 @@ impl TestApp {
 pub async fn spawn_app() -> TestApp {
     // The first time `initialize` is invoked the code in `TRACING` is executed.
     // All other invocations will instead skip execution.
-    Lazy::force(&TRACING);
+    LazyLock::force(&TRACING);
     let email_server = MockServer::start().await;
     let configuration = {
         let mut c = get_configuration().expect("Failed to read configuration.");
