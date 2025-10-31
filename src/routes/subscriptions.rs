@@ -7,7 +7,7 @@ use actix_web::{http::StatusCode, web, HttpResponse, ResponseError};
 use anyhow::Context;
 use chrono::Utc;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
-use sqlx::{PgPool, Postgres, Transaction};
+use sqlx::{Executor, PgPool, Postgres, Transaction};
 use tracing;
 use uuid::Uuid;
 
@@ -148,14 +148,12 @@ pub async fn store_token(
     subscriber_id: Uuid,
     subscription_token: &str,
 ) -> Result<(), StoreTokenError> {
-    sqlx::query!(
+    let query = sqlx::query!(
         r#"INSERT INTO subscription_tokens (subscription_token, subscriber_id) VALUES ($1, $2)"#,
         subscription_token,
         subscriber_id,
-    )
-    .execute(transaction)
-    .await
-    .map_err(|e| StoreTokenError(e))?;
+    );
+    transaction.execute(query).await.map_err(|e| StoreTokenError(e))?;
     Ok(())
 }
 
@@ -200,7 +198,7 @@ pub async fn insert_subscriber(
     new_subscriber: &NewSubscriber,
 ) -> Result<Uuid, sqlx::Error> {
     let new_subscriber_id = Uuid::new_v4();
-    sqlx::query!(
+    let query = sqlx::query!(
         r#"
         INSERT INTO subscriptions (id, email, name, subscribed_at, status)
         VALUES ($1, $2, $3, $4, 'pending_confirmation')
@@ -209,9 +207,7 @@ pub async fn insert_subscriber(
         new_subscriber.email.as_ref(),
         new_subscriber.name.as_ref(),
         Utc::now()
-    )
-    .execute(transaction)
-    .await
-    .map_err(|e| e)?;
+    );
+    transaction.execute(query).await.map_err(|e| e)?;
     Ok(new_subscriber_id)
 }

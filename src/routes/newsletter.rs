@@ -11,6 +11,7 @@ use actix_web::ResponseError;
 use anyhow::Context;
 use secrecy::Secret;
 use sqlx::PgPool;
+use base64::prelude::*;
 
 #[derive(thiserror::Error)]
 pub enum PublishError {
@@ -125,7 +126,7 @@ fn basic_authentication(headers: &HeaderMap) -> Result<Credentials, anyhow::Erro
     let base64encoded_segment = header_value
         .strip_prefix("Basic ")
         .context("The 'Authorization' scheme was not 'Basic'.")?;
-    let decoded_bytes = base64::decode_config(base64encoded_segment, base64::STANDARD)
+    let decoded_bytes = BASE64_STANDARD.decode(base64encoded_segment)
         .context("Failed to base64-decode 'Basic' credentials.")?;
     let decoded_credentials = String::from_utf8(decoded_bytes)
         .context("The decoded credential string is not a valid UTF8.")?;

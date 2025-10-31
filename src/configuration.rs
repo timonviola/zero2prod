@@ -5,6 +5,7 @@ use sqlx::postgres::{PgConnectOptions, PgSslMode};
 
 use serde_aux::field_attributes::deserialize_number_from_string;
 use sqlx::ConnectOptions;
+use std::convert::{TryFrom, TryInto};
 
 #[derive(serde::Deserialize, Clone)]
 pub struct Settings {
@@ -67,9 +68,7 @@ impl DatabaseSettings {
     }
 
     pub fn with_db(&self) -> PgConnectOptions {
-        let mut options = self.without_db().database(&self.database_name);
-        options.log_statements(tracing::log::LevelFilter::Trace);
-        options
+        self.without_db().database(&self.database_name)
     }
 }
 
@@ -116,5 +115,5 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     settings.merge(
         config::File::from(configuration_directory.join(environment.as_str())).required(true),
     )?;
-    settings.try_into()
+    settings.try_deserialize::<Settings>()
 }
