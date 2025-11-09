@@ -2,12 +2,13 @@ use crate::authentication::UserId;
 use crate::domain::SubscriberEmail;
 use crate::email_client::EmailClient;
 use crate::routes::error_chain_fmt;
-use crate::utils::e500;
+use crate::utils::{e500, see_other};
 use actix_web::http::header::HeaderValue;
 use actix_web::http::{header, StatusCode};
 use actix_web::web;
 use actix_web::HttpResponse;
 use actix_web::ResponseError;
+use actix_web_flash_messages::FlashMessage;
 use anyhow::Context;
 use sqlx::PgPool;
 
@@ -72,8 +73,6 @@ pub async fn publish_newsletter(
     user_id: web::ReqData<UserId>,
     email_client: web::Data<EmailClient>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    // let user_id = user_id.into_inner();
-    //tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
     let subscribers = get_confirmed_subscribers(&pool).await.map_err(e500)?;
     for subscriber in subscribers {
         match subscriber {
@@ -100,8 +99,8 @@ pub async fn publish_newsletter(
             }
         }
     }
-
-    Ok(HttpResponse::Ok().finish())
+    FlashMessage::info("The newsletter issue has been published!").send();
+    Ok(see_other("/admin/newsletter"))
 }
 
 #[tracing::instrument(name = "Get confirmed subscribers", skip(pool))]
