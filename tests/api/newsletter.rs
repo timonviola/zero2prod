@@ -4,6 +4,25 @@ use wiremock::matchers::{any, method, path};
 use wiremock::{Mock, ResponseTemplate};
 
 #[tokio::test]
+async fn admin_dashboard_includes_link_to_newsletters() {
+    let app = spawn_app().await;
+
+    app.post_login(&serde_json::json!({
+        "username": &app.test_user.username,
+        "password": &app.test_user.password,
+    }))
+    .await;
+
+    let html_page = app
+        .get_admin_dashboard_html()
+        .await;
+
+    assert!(html_page.contains(
+        r#"<a href="/admin/newsletter">Send a newsletter</a>"#
+    ));
+}
+
+#[tokio::test]
 async fn invalid_password_is_rejected() {
     let app = spawn_app().await;
     let username = &app.test_user.username;
