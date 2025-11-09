@@ -1,16 +1,14 @@
-use crate::authentication::{Credentials, UserId};
+use crate::authentication::UserId;
 use crate::domain::SubscriberEmail;
 use crate::email_client::EmailClient;
 use crate::routes::error_chain_fmt;
 use crate::utils::e500;
-use actix_web::http::header::{HeaderMap, HeaderValue};
+use actix_web::http::header::HeaderValue;
 use actix_web::http::{header, StatusCode};
 use actix_web::web;
 use actix_web::HttpResponse;
 use actix_web::ResponseError;
 use anyhow::Context;
-use base64::prelude::*;
-use secrecy::Secret;
 use sqlx::PgPool;
 
 #[derive(thiserror::Error)]

@@ -6,7 +6,7 @@ use actix_web::{
     error::InternalError,
     FromRequest,
 };
-use actix_web::{HttpMessage, HttpRequest};
+use actix_web::HttpMessage;
 use std::ops::Deref;
 use uuid::Uuid;
 
