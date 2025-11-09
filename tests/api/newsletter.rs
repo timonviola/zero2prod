@@ -4,6 +4,28 @@ use wiremock::matchers::{any, method, path};
 use wiremock::{Mock, ResponseTemplate};
 
 #[tokio::test]
+async fn admin_submit_newsletters_returns_form() {
+    let app = spawn_app().await;
+
+    app.post_login(&serde_json::json!({
+        "username": &app.test_user.username,
+        "password": &app.test_user.password,
+    }))
+    .await;
+
+    let response = app.get_submit_newsletters().await;
+
+    assert_eq!(
+        200,
+        response.status().as_u16(),
+        "The API did not return the form.",
+    );
+
+    let html_page = app.get_submit_newsletters_html().await;
+    assert!(html_page.contains(r#"<form action="/admin/newsletters" method="post">"#));
+}
+
+#[tokio::test]
 async fn admin_dashboard_includes_link_to_newsletters() {
     let app = spawn_app().await;
 
@@ -13,13 +35,9 @@ async fn admin_dashboard_includes_link_to_newsletters() {
     }))
     .await;
 
-    let html_page = app
-        .get_admin_dashboard_html()
-        .await;
+    let html_page = app.get_admin_dashboard_html().await;
 
-    assert!(html_page.contains(
-        r#"<a href="/admin/newsletter">Send a newsletter</a>"#
-    ));
+    assert!(html_page.contains(r#"<a href="/admin/newsletters">Send a newsletter</a>"#));
 }
 
 #[tokio::test]
