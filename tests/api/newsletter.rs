@@ -7,11 +7,7 @@ async fn successfully_submit_newsletter_form() {
     // I. Access submit form
     let app = spawn_app().await;
 
-    app.post_login(&serde_json::json!({
-        "username": &app.test_user.username,
-        "password": &app.test_user.password,
-    }))
-    .await;
+    app.test_user.login(&app).await;
 
     let response = app.get_submit_newsletters().await;
 
@@ -32,11 +28,7 @@ async fn successfully_submit_newsletter_form() {
 async fn submit_newsletters_returns_form() {
     let app = spawn_app().await;
 
-    app.post_login(&serde_json::json!({
-        "username": &app.test_user.username,
-        "password": &app.test_user.password,
-    }))
-    .await;
+    app.test_user.login(&app).await;
 
     let response = app.get_submit_newsletters().await;
 
@@ -54,11 +46,7 @@ async fn submit_newsletters_returns_form() {
 async fn admin_dashboard_includes_link_to_newsletters() {
     let app = spawn_app().await;
 
-    app.post_login(&serde_json::json!({
-        "username": &app.test_user.username,
-        "password": &app.test_user.password,
-    }))
-    .await;
+    app.test_user.login(&app).await;
 
     let html_page = app.get_admin_dashboard_html().await;
 
@@ -98,11 +86,7 @@ async fn newsletters_are_delivered_to_confirmed_subscribers() {
         .mount(&app.email_server)
         .await;
 
-    app.post_login(&serde_json::json!({
-        "username": &app.test_user.username,
-        "password": &app.test_user.password,
-    }))
-    .await;
+    app.test_user.login(&app).await;
     let response = app
         .post_newsletters(&serde_json::json!({
           "title": "Newsletter title",
@@ -110,18 +94,17 @@ async fn newsletters_are_delivered_to_confirmed_subscribers() {
           "html_content": "<p>Newsletter body as HTML</p>",
         }))
         .await;
-    assert_eq!(response.status().as_u16(), 200);
+    assert_is_redirect_to(&response, "/admin/newsletters");
+    let html_page = app.get_submit_newsletters_html().await;
+    assert!(html_page.contains("<p><i>The newsletter issue has been published!</i></p>"));
+    // Mock verifies on Drop that we have sent the newsletter email
 }
 
 #[tokio::test]
 async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
     let app = spawn_app().await;
 
-    app.post_login(&serde_json::json!({
-        "username": &app.test_user.username,
-        "password": &app.test_user.password,
-    }))
-    .await;
+    app.test_user.login(&app).await;
 
     create_unconfirmed_subscriber(&app).await;
 
@@ -138,18 +121,18 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
     });
 
     let response = app.post_newsletters(&newsletter_request_body).await;
-    assert_eq!(response.status().as_u16(), 200);
+    assert_is_redirect_to(&response, "/admin/newsletters");
+    let html_page = app.get_submit_newsletters_html().await;
+    // assert on injected FlashMessage content
+    assert!(html_page.contains("<p><i>The newsletter issue has been published!</i></p>"));
+    // Mock verifies on Drop that we haven't sent the newsletter email
 }
 
 #[tokio::test]
 async fn newsletters_return_400_for_invalid_data() {
     let app = spawn_app().await;
 
-    app.post_login(&serde_json::json!({
-        "username": &app.test_user.username,
-        "password": &app.test_user.password,
-    }))
-    .await;
+    app.test_user.login(&app).await;
 
     let test_cases = vec![
         (
