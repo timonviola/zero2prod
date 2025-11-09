@@ -1,7 +1,4 @@
-use actix_web::{
-    http::header::ContentType,
-    HttpResponse,
-};
+use actix_web::{http::header::ContentType, HttpResponse};
 
 pub async fn submit_newsletter_form() -> HttpResponse {
     HttpResponse::Ok()
