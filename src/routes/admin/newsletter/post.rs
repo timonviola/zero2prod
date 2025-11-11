@@ -2,7 +2,8 @@ use crate::authentication::UserId;
 use crate::domain::SubscriberEmail;
 use crate::email_client::EmailClient;
 use crate::routes::error_chain_fmt;
-use crate::utils::{e500, see_other};
+use crate::utils::{e400, e500, see_other};
+use crate::idempotency::IdempotencyKey;
 use actix_web::http::header::HeaderValue;
 use actix_web::http::{header, StatusCode};
 use actix_web::web;
@@ -56,6 +57,7 @@ pub struct FormData {
     title: String,
     html_content: String,
     text_content: String,
+    idempotency_key: String,
 }
 
 struct ConfirmedSubscriber {
@@ -73,6 +75,8 @@ pub async fn publish_newsletter(
     user_id: web::ReqData<UserId>,
     email_client: web::Data<EmailClient>,
 ) -> Result<HttpResponse, actix_web::Error> {
+    let idempotency_key: IdempotencyKey = form.0.idempotency_key.try_into().map_err(e400)?;
+
     let subscribers = get_confirmed_subscribers(&pool).await.map_err(e500)?;
     for subscriber in subscribers {
         match subscriber {
