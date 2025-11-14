@@ -34,7 +34,9 @@ async fn concurrent_form_submissions_handled_gracefully() {
     assert_eq!(
         response1.text().await.unwrap(),
         response2.text().await.unwrap()
-    )
+    );
+
+    app.dispatch_all_pending_emails().await;
 }
 
 #[tokio::test]
@@ -132,7 +134,11 @@ async fn newsletters_are_delivered_to_confirmed_subscribers() {
         .await;
     assert_is_redirect_to(&response, "/admin/newsletters");
     let html_page = app.get_submit_newsletters_html().await;
-    assert!(html_page.contains("<p><i>The newsletter issue has been published!</i></p>"));
+    assert!(html_page.contains(
+        "The newsletter issue has been accepted - \
+        email will go out shortly."
+    ));
+    app.dispatch_all_pending_emails().await;
     // Mock verifies on Drop that we have sent the newsletter email
 }
 
@@ -160,8 +166,12 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
     let response = app.post_newsletters(&newsletter_request_body).await;
     assert_is_redirect_to(&response, "/admin/newsletters");
     let html_page = app.get_submit_newsletters_html().await;
+    assert!(html_page.contains(
+        "The newsletter issue has been accepted - \
+        email will go out shortly."
+    ));
+    app.dispatch_all_pending_emails().await;
     // assert on injected FlashMessage content
-    assert!(html_page.contains("<p><i>The newsletter issue has been published!</i></p>"));
     // Mock verifies on Drop that we haven't sent the newsletter email
 }
 
@@ -237,47 +247,43 @@ async fn create_confirmed_subscriber(app: &TestApp) {
         .error_for_status()
         .unwrap();
 }
-
-fn when_sending_an_email() -> MockBuilder {
-    Mock::given(path("/email")).and(method("POST"))
-}
-
 #[tokio::test]
-async fn transient_errors_do_nost_cause_duplicate_deliveries_on_retries() {
+async fn newsletter_creation_is_idempotent() {
+    // Arrange
     let app = spawn_app().await;
-    let newsletter_request_body = serde_json::json!({
-      "title": "Newsletter title",
-      "text_content": "Newsletter body as plain text",
-      "html_content": "<p>Newsletter body as HTML</p>",
-      "idempotency_key": uuid::Uuid::new_v4().to_string(),
-    });
-    create_confirmed_subscriber(&app).await;
     create_confirmed_subscriber(&app).await;
     app.test_user.login(&app).await;
-    when_sending_an_email()
-        .respond_with(ResponseTemplate::new(200))
-        .up_to_n_times(1)
-        .expect(1)
-        .mount(&app.email_server)
-        .await;
-    // second delivery should fail
-    when_sending_an_email()
-        .respond_with(ResponseTemplate::new(500))
-        .up_to_n_times(1)
-        .expect(1)
-        .mount(&app.email_server)
-        .await;
 
-    let response = app.post_newsletters(&newsletter_request_body).await;
-
-    assert_eq!(response.status().as_u16(), 500);
-    when_sending_an_email()
+    Mock::given(path("/email"))
+        .and(method("POST"))
         .respond_with(ResponseTemplate::new(200))
         .expect(1)
-        .named("Delivery retry")
         .mount(&app.email_server)
         .await;
 
+    let newsletter_request_body = serde_json::json!({
+        "title": "Newsletter title",
+        "text_content": "Newsletter body as plain text",
+        "html_content": "<p>Newsletter body as HTML</p>",
+        "idempotency_key": uuid::Uuid::new_v4().to_string()
+    });
     let response = app.post_newsletters(&newsletter_request_body).await;
-    assert_eq!(response.status().as_u16(), 303);
+    assert_is_redirect_to(&response, "/admin/newsletters");
+
+    let html_page = app.get_submit_newsletters_html().await;
+    assert!(html_page.contains(
+        "<p><i>The newsletter issue has been accepted - \
+        emails will go out shortly.</i></p>"
+    ));
+
+    let response = app.post_newsletters(&newsletter_request_body).await;
+    assert_is_redirect_to(&response, "/admin/newsletters");
+
+    let html_page = app.get_submit_newsletters_html().await;
+    assert!(html_page.contains(
+        "The newsletter issue has been accepted - \
+        email will go out shortly."
+    ));
+    app.dispatch_all_pending_emails().await;
 }
+

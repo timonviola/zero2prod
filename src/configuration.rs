@@ -1,10 +1,26 @@
 use crate::domain::SubscriberEmail;
+use crate::email_client::EmailClient;
 use secrecy::ExposeSecret;
 use secrecy::Secret;
 use sqlx::postgres::{PgConnectOptions, PgSslMode};
 
 use serde_aux::field_attributes::deserialize_number_from_string;
 use std::convert::{TryFrom, TryInto};
+
+
+impl EmailClientSettings {
+    pub fn client(self) -> EmailClient {
+        let sender_email = self.sender().expect("Invalid sender email address.");
+        let timeout = self.timeout();
+        EmailClient::new(
+            self.base_url,
+            sender_email,
+            self.authorization_token,
+            timeout,
+        )
+    }
+
+}
 
 #[derive(serde::Deserialize, Clone)]
 pub struct Settings {
