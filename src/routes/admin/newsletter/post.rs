@@ -1,10 +1,10 @@
 use crate::authentication::UserId;
 use crate::domain::SubscriberEmail;
 use crate::email_client::EmailClient;
+use crate::idempotency::{save_response, try_processing};
+use crate::idempotency::{IdempotencyKey, NextAction};
 use crate::routes::error_chain_fmt;
 use crate::utils::{e400, e500, see_other};
-use crate::idempotency::{IdempotencyKey, NextAction};
-use crate::idempotency::{ save_response, try_processing};
 use actix_web::http::header::HeaderValue;
 use actix_web::http::{header, StatusCode};
 use actix_web::web;
@@ -13,6 +13,8 @@ use actix_web::ResponseError;
 use actix_web_flash_messages::FlashMessage;
 use anyhow::Context;
 use sqlx::PgPool;
+use sqlx::{Executor, Postgres, Transaction};
+use uuid::Uuid;
 
 #[derive(thiserror::Error)]
 pub enum PublishError {
@@ -81,22 +83,13 @@ pub async fn publish_newsletter(
     let transaction = match try_processing(&pool, &idempotency_key, *user_id)
         .await
         .map_err(e500)?
-    
     {
         NextAction::StartProcessing(t) => t,
         NextAction::ReturnSavedResponse(saved_response) => {
             success_message().send();
             return Ok(saved_response);
         }
-
     };
-
-//    if let Some(saved_response) = get_saved_response(&pool, &idempotency_key, *user_id)
-//        .await
-//        .map_err(e500)?
-//    {
-//        return Ok(saved_response);
-//    }
 
     let subscribers = get_confirmed_subscribers(&pool).await.map_err(e500)?;
     for subscriber in subscribers {
@@ -157,4 +150,32 @@ async fn get_confirmed_subscribers(
     })
     .collect();
     Ok(confirmed_subscribers)
+}
+
+#[tracing::instrument(skip_all)]
+async fn insert_newsletter_issue(
+    transaction: &mut Transaction<'_, Postgres>,
+    title: &str,
+    text_content: &str,
+    html_content: &str,
+) -> Result<Uuid, sqlx::Error> {
+    let newsletter_issue_id = Uuid::new_v4();
+    let query = sqlx::query!(
+        r#"
+        INSERT INTO newsletter_issues (
+            newsletter_issue_id,
+            title,
+            text_content,
+            html_content,
+            published_at
+        )
+        VALUES ($1, $2, $3, $4, now())
+        "#,
+        newsletter_issue_id,
+        title,
+        text_content,
+        html_content
+    );
+    transaction.execute(query).await?;
+    Ok(newsletter_issue_id)
 }

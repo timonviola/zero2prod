@@ -15,8 +15,8 @@ pub fn see_other(location: &str) -> HttpResponse {
 }
 
 pub fn e400<T: std::fmt::Debug + std::fmt::Display>(e: T) -> actix_web::Error
-where 
-    T: std::fmt::Debug + std::fmt::Display + 'static
+where
+    T: std::fmt::Debug + std::fmt::Display + 'static,
 {
     actix_web::error::ErrorBadRequest(e)
 }

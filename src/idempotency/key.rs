@@ -1,4 +1,3 @@
-
 #[derive(Debug)]
 pub struct IdempotencyKey(String);
 
@@ -11,22 +10,23 @@ impl TryFrom<String> for IdempotencyKey {
         }
         let max_length = 50;
         if s.len() >= max_length {
-            anyhow::bail!("The idempotency key cannot be longer \
-            than {max_length} characters.");
+            anyhow::bail!(
+                "The idempotency key cannot be longer \
+            than {max_length} characters."
+            );
         }
         Ok(Self(s))
     }
-
 }
 
 impl From<IdempotencyKey> for String {
     fn from(k: IdempotencyKey) -> Self {
-       k.0 
+        k.0
     }
 }
 
 impl AsRef<str> for IdempotencyKey {
     fn as_ref(&self) -> &str {
-       &self.0 
+        &self.0
     }
 }

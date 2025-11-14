@@ -1,12 +1,12 @@
 use crate::utils::{e500, see_other};
 use actix_web::middleware::Next;
+use actix_web::HttpMessage;
 use actix_web::{
     body::MessageBody,
     dev::{ServiceRequest, ServiceResponse},
     error::InternalError,
     FromRequest,
 };
-use actix_web::HttpMessage;
 use std::ops::Deref;
 use uuid::Uuid;
 

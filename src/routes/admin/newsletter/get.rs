@@ -2,7 +2,7 @@ use actix_web::{http::header::ContentType, HttpResponse};
 use actix_web_flash_messages::IncomingFlashMessages;
 use std::fmt::Write;
 
-pub async fn submit_newsletter_form(flash_message: IncomingFlashMessages ) -> HttpResponse {
+pub async fn submit_newsletter_form(flash_message: IncomingFlashMessages) -> HttpResponse {
     let mut msg_html = String::new();
     for m in flash_message.iter() {
         writeln!(msg_html, "<p><i>{}</i></p>", m.content()).unwrap();
