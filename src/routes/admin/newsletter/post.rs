@@ -63,24 +63,19 @@ pub struct FormData {
     idempotency_key: String,
 }
 
-struct ConfirmedSubscriber {
-    email: SubscriberEmail,
-}
-
 #[tracing::instrument(
     name = "Publish a newsletter issue",
-    skip(form, pool, email_client, user_id),
+    skip_all,
     fields(user_id=%*user_id)
 )]
 pub async fn publish_newsletter(
     form: web::Form<FormData>,
     pool: web::Data<PgPool>,
     user_id: web::ReqData<UserId>,
-    email_client: web::Data<EmailClient>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let user_id = user_id.into_inner();
     let idempotency_key: IdempotencyKey = form.0.idempotency_key.try_into().map_err(e400)?;
-    let transaction = match try_processing(&pool, &idempotency_key, *user_id)
+    let mut transaction = match try_processing(&pool, &idempotency_key, *user_id)
         .await
         .map_err(e500)?
     {
@@ -90,66 +85,35 @@ pub async fn publish_newsletter(
             return Ok(saved_response);
         }
     };
+    let issue_id = insert_newsletter_issue(
+        &mut transaction,
+        &form.0.title,
+        &form.0.html_content,
+        &form.0.text_content,
+    )
+    .await
+    .context("Failed to store newsletter issue details")
+    .map_err(e500)?;
 
-    let subscribers = get_confirmed_subscribers(&pool).await.map_err(e500)?;
-    for subscriber in subscribers {
-        match subscriber {
-            Ok(subscriber) => {
-                email_client
-                    .send_email(
-                        &subscriber.email,
-                        &form.0.title,
-                        &form.0.html_content,
-                        &form.0.text_content,
-                    )
-                    .await
-                    .with_context(|| {
-                        format!("Failed to send newsletter issue to {}", subscriber.email)
-                    })
-                    .map_err(e500)?;
-            }
-            Err(error) => {
-                tracing::warn!(
-                    error.cause_chain = ?error,
-                    "Skipping a confirmed subscriber. \
-                    Their stored contact details are invalid",
-                );
-            }
-        }
-    }
-    FlashMessage::info("The newsletter issue has been published!").send();
-    success_message().send();
+    enqueue_delivery_tasks(&mut transaction, issue_id)
+        .await
+        .context("Failed to enqueue delivery tasks")
+        .map_err(e500)?;
+
     let response = see_other("/admin/newsletters");
     let response = save_response(transaction, &idempotency_key, *user_id, response)
         .await
         .map_err(e500)?;
+    success_message().send();
+
     Ok(response)
 }
 
 fn success_message() -> FlashMessage {
-    FlashMessage::info("The newsletter issue has been published!")
-}
-
-#[tracing::instrument(name = "Get confirmed subscribers", skip(pool))]
-async fn get_confirmed_subscribers(
-    pool: &PgPool,
-) -> Result<Vec<Result<ConfirmedSubscriber, anyhow::Error>>, anyhow::Error> {
-    let confirmed_subscribers = sqlx::query!(
-        r#"
-        SELECT email
-        FROM subscriptions
-        WHERE status = 'confirmed'
-        "#,
+    FlashMessage::info(
+        "The newsletter issue has been accepted - \
+        email will go out shortly.",
     )
-    .fetch_all(pool)
-    .await?
-    .into_iter()
-    .map(|r| match SubscriberEmail::parse(r.email) {
-        Ok(email) => Ok(ConfirmedSubscriber { email }),
-        Err(error) => Err(anyhow::anyhow!(error)),
-    })
-    .collect();
-    Ok(confirmed_subscribers)
 }
 
 #[tracing::instrument(skip_all)]
@@ -178,4 +142,24 @@ async fn insert_newsletter_issue(
     );
     transaction.execute(query).await?;
     Ok(newsletter_issue_id)
+}
+
+async fn enqueue_delivery_tasks(
+    transaction: &mut Transaction<'_, Postgres>,
+    newsletter_issue_id: Uuid,
+) -> Result<(), sqlx::Error> {
+    let query = sqlx::query!(
+        r#"
+        INSERT INTO issue_delivery_queue (
+          newsletter_issue_id,
+          subscriber_email
+        )
+        SELECT $1, email
+        FROM subscriptions
+        WHERE status = 'confirmed'
+    "#,
+        newsletter_issue_id,
+    );
+    transaction.execute(query).await?;
+    Ok(())
 }
